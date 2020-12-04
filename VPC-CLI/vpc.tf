@@ -161,4 +161,5 @@ resource "aws_route_table_association" "My_VPC_association" {
   route_table_id = aws_route_table.My_VPC_route_table.id
 } 
 
-# end resource# end vpc.tf
+# end resource
+# end vpc.tf
