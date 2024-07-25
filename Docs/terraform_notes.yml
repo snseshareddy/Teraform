@@ -1,0 +1,1076 @@
+Terraform:
+=========
+
+Providers:
+--------
+Different Version Parameters:
+version    = "2.7"
+version    = "~>2.7"
+version    = ">= 2.8"
+version    = "<= 2.8"
+version    = ">=2.10,<=2.30"
+
+Terraform Referesh:
+-----------------
+this command will check the latest state of infra and update the state file accordingly
+
+Refresh command are part of terraform plan and apply
+
+-refresh-only: option for tf plan & apply was introduced in terraform v0.15.4
+
+Variable Types:
+-----------
+string - "welcome"
+number -  1
+bool -  true/flase
+any  - default
+list -  ["cat", "dog"]  =  list(string) or list(number)
+set -  same as list (duplciates not allowed)     = set(string), set(number)
+map -   pet1=cat
+        pet2=dog           =   map(number), map(string)    
+
+object - complex data structure
+
+tuple -  same as list , with different data types    
+
+-----------------------------------------------------------------
+variable "prefix" {
+   default = ["Mr", "Mrs", "sir"]                     -->   prefix = var.prefix[0]
+   type = list
+}
+
+
+variable "file-content" {
+   type = map
+   default = {
+      "stat1" = "welcome cat"                        --->  content = var.file-content["stat1"]
+	  "stat2" = "welcome dog"
+   }
+}
+
+
+variable "age" {
+  type = set(number)
+  default = [10, 20, 30]
+
+}
+
+variable "student" {
+   type = object({
+      name = string
+	  color = string
+	  age = number
+	  food = list(string)
+	  fav_pet = bool
+})
+
+default = {
+    name = "tom"
+	color = "red"
+	age = 20
+	food = ["fish", "fruits", "chinse"]
+	fav_pet = true
+ }
+}
+
+
+variable kitty {
+   type = tuple([string, number, bool])
+   default = ["cat", 20, true]
+   
+}
+
+-----------------------------------------------------
+different ways to define variables:
+1.env variables
+2.cli fags
+3.From a file
+4.variable defaults         - variable.tf
+
+It uses two files variables.tf and terraform.tfvars 
+variables.tf : => where declare variable as below and provide default values
+variable "instancetype" {
+    deafult = "t2.micro"
+}
+terraform.tfvars: => it is default name of file, where we define the values of varibales
+instancetype=m2x.large
+
+-------------------------------------------------------------------------------
+variable defaults:  variables.tf
+-----------------------------------
+variable "filename" {
+    deafult = "/root/pets.txt"
+}
+variable "content" {
+   deafult = "we love pets"
+}
+variable "prefix" {
+   default = "Mrs"
+}
+--------------------------------------------------------------------------------
+(OR)  CLI varilables: - 4 (highest priority)
+
+$ terraform apply -var "filename=/root/pets" -var "content=We love pets"
+
+(OR) ENV Variables:  - 1  
+$ export TF_VAR_filename="/root/pets"
+$ export TF_VAR_content="we love pets"
+
+(OR):
+terraform.tfvars:  - 2
+----------------
+filename="/root/pets.txt"
+content="welcove pets"
+prefix="Mrs"
+
+(OR)
+variable.auto.tfvars: - 3 
+---------------------
+filename = "root/pets.txt"
+
+-----------------------------------------------------------------------------------
+
+LOCAL VALUES:
+============
+locals {
+    common_tags ={
+    Owner = "Dev Team"
+    Env  = "Develop"
+    
+    }
+}
+
+resource "aws_instance" "myec2" {
+    ami = "ami-123xyz"
+    instance_type = "t2.micro"
+    tags = local.common_tags
+
+}
+
+
+====================================================================================================================
+Resource attribute:  implicit call
+------------------
+resource "local_file" "pet" {
+  filename = var.filename
+  content = "My fav pet is ${random_pet.my-pet.id}
+}
+resource "random_pet" "my-pet" {
+  prefix = var.prefix
+  separator = var.separator
+  length = var.length
+}
+
+Resource Dependencies:
+-----------------------
+resource "local_file" "pet" {
+  filename = var.filename
+  content = "My fav pet is ${random_pet.my-pet.id}
+  depends_on = [
+    random_pet.my-pet
+  ]
+}
+resource "random_pet" "my-pet" {
+  prefix = var.prefix
+  separator = var.separator
+  length = var.length
+}
+
+Output variables:
+---------------
+output pet-name {
+  value = random_pet.my-pet.id                             value = aws_eip.lb.public_ip      ( to o/p public ip from EIP)  or   value = "https://${aws_eip.lb.public_ip}:8080"
+  description = "record the value of pet ID"
+}
+
+$ terraform output     --> show output value
+
+$ terraform output pet-name
+
+
+To improve performance - (instead refresh terraform state every time:)
+$ terraform plan --refresh=false
+
+terraform.tfstate its in JSON format by default
+
+-----------------------
+terrafrom commands:
+==================
+$ terraform validate   --> It validates the resource block and the argument syntax but not the values
+$ terraform fmt    -->  format commands cononoical format
+$ terraform show    -->  current state of resources  
+$ terraform show  -json  -> to see in json format
+$ terraform providers  --> To see all list of provides in config directory
+$ terraform providers mirror /root/terraform/new_location   --> To mirror all providers into new location of directory
+$ terraform output    --> To see output variables
+$ terraform output pet-name   --> To see values of output variable pet-name
+$ terraform refresh  -->  update changes of resource to state files, made outside terraform
+$ terraform graph  --> To show graph of dependency of resources
+  - apt install graphviz -y
+  - terraform graph | dot -Tsvg > graph.svg
+  
+$ terraform destroy  - Delete all Resources created part of a directory.
+$ terraform destroy -target aws_instance.myec2  -  Delete only ec2 instance alone
+
+# Commnet resource block in tf file - will also destroy the resource on next "terraform apply"
+
+Desired State:  Changes As per terraform file
+Current State:  Changes made directly on resource.
+
+$ terraform refresh  - will refresh terraform desired state to current state.
+ 
+LifeCycle Rules:
+===============
+resource "local_file" "pet" {
+
+lifecycle {
+  create_before_destroy = true    ( Create the Resource first and then destroy older) 
+  }
+
+
+lifecycle {
+  prevent_destroy = true        ( Prevent destroy of resource)
+  }
+  
+lifecycle { 
+  ignore_changes = [                ( Ignore Changes to Resource attributes (speciifc/all)
+      tags,ami
+	 ]
+}
+
+lifecycle { 
+  ignore_changes = all
+  }
+
+}
+
+---------------------------------------------------------------
+To see the id of the file resource created?
+
+Run 
+$ terraform show (or) 
+$ terraform state show local_file.file 
+
+-------------------
+Data Resource:
+==============
+- only reads infrastructure
+
+ex-1:
+----
+output "os-version" {
+  value = data.local_file.os.content
+}
+data "local_file" "os" {
+  filename = "/etc/os-release"
+}
+
+ex-2:
+---
+data "aws_ebs_volume" "gp2_volume" {
+  most_recent = true
+
+  filter {
+    name   = "volume-type"
+    values = ["gp2"]
+  }
+}
+----------------------------------------------------------
+Meta Arguments:
+===============
+Count:
+------
+variables.tf:
+----------
+variable "filename" {
+ default = [
+   "/root/pets.txt"
+   "/root/dogs.txt"
+   "/root/cats.txt"
+   ]
+ }  
+resource "local_file" "pet" {
+ filename = var.filename[count.index]
+ count = length(var.filename)
+ 
+}
+output "pets" {
+  value = local_file.pet
+  }
+  
+ex-2:
+----
+resource "local_file" "name" {
+    filename = var.users[count.index]
+    sensitive_content = var.content
+    count = length(var.users)
+}
+
+variable "users" {
+    type = list
+}
+variable "content" {
+    default = "password: S3cr3tP@ssw0rd"
+  
+}
+----------------------------------------------
+for-each:  it works with only variable type - SET
+---------
+SET - unordered and duplicates are not allowed
+
+resource "local_file" "pet" {
+  filename = each.value
+  for_each = toset(var.filename)        - convert list to set
+  }
+  
+  (or ) - use set type variable
+variable "filename" {
+  type = set(string)
+  default = [
+   "/root/pets.txt"
+   "/root/dogs.txt"
+   "/root/cats.txt"
+   ]
+ }
+ 
+Ex2:
+
+resource "aws-instance" "myec2" {
+ ami = "ami-xyz1234"
+ foreach = {
+    key1 = "t2.micro"
+    key2 = "t2.medium"
+ }
+ instacne_type = each.value
+ key_name = each.key
+ 
+ tags = {
+   Name = each.value
+ }
+ 
+}
+ 
+ ---------------------------------------------
+ Version Providers:
+ =================
+ - By default providers uses latest version
+ 
+ To use specific version of provider:
+ ------
+ terraform {
+   required_providers {
+     local = {
+	   source = "hashicorp/local"
+	   version = "1.4.0"                         
+	  }
+	}
+ }
+ 
+ var = "!= 2.0.0"   => not eqaul, but takes previous version of 2.0.0
+ var = "< 1.4.0"    -> less version than 1.4.0
+ var = "> 1.4.0"    -> More than version 1.4.0
+ var = "> 1.2.0, < 2.0.0, != 1.4.0"    --> greater than 1.2.0, but less than 2.0.0, and not equal to 1.4.0"
+ 
+ var = "~> 1.2"   -> max version in this version range  , here it is max version 1.4.0
+ var = "~>1.2.0"  -> max version here it is 1.2.2
+ 
+ ex-2:
+ ----
+ terraform {
+  required_providers {
+    google = {
+      source  = "hashicorp/google"
+      version = "> 3.45.0, !=3.46.0, < 3.48.0"
+    }
+  }
+}
+-------------------------------------------------------------
+Remote Backends with S3
+======================
+terraform.tf
+-------------
+terraform {
+  backend "s3" {
+    bucket   =  "<bucketname>"
+	key      = "finance/terraform.tfstate"
+	region   = "us-east-1"
+	dynamodb_table = "state-locking"
+   }
+}
+
+-------------------------------
+Terraform state Commands:
+======================
+# terraform state list   - List all resouces
+# terrafrom state show   - Details about attribute
+# terraform state mv     - renaming resources, 
+# terraform state pull   - 
+# terraform state push   - 
+# terrafrom state rm <resource address>
+
+
+Terraform Remote state:
+========================
+connect and retrieve output values from one tfstate and use it in another tf file.
+
+data "terraform_remote_state" "eip" {
+   backend = "s3"
+   
+   config = {
+     bucket = "sesha-backend"
+     key    = "network/eip.tfstate"
+     region = "us-east-1"
+     }
+ }
+
+use it with:   data.terraform_remote_state.eip.outputs.eip_addr/32
+
+-------------------------
+Terraform taint --> will recreate the resource while do apply
+terrafrom untaint  --> undo
+
+Debugging modes:
+=================
+$ export TF_LOG=TRACE   ( INFO, WARNING, ERROR, DEBUG, TRACE)
+
+To store logs in a file:
+$ export TF_LOG_PATH=/tmp/terraform.logs
+
+$ unset TF_LOG_PATH=/tmp/terraform.logs
+
+---------------------------------
+Terraform import:
+=================
+$ terraform import aws_instance.webserver <instance-id>
+
+Terraform Modules:
+===================
+module "us_payroll" {
+  source = "../modules/payroll-app"
+  app_region = "us-east-1"
+  ami = "ami-24e140avm"
+
+}
+
+Terraform modules from Registry:
+================================
+module "us_payroll" {
+  source = "terraform-aws-modules/security-group/aws/modules/test"
+  app_region = "us-east-1"
+  ami = "ami-24e140avm"
+
+}
+
+To set false of few resource from module:
+========================================
+module "iam_iam-user" {
+  source  = "terraform-aws-modules/iam/aws//modules/iam-user"
+  version = "3.4.0"
+  # insert the 1 required variable here
+  name                          = "max"
+  create_iam_user_login_profile = false
+  create_iam_access_key         = false
+}
+
+--------------------------------------------------------
+Terrafrom Functions:
+===================
+toset()
+lenght()
+max() - get big number
+min()  - small number
+ceil()  - nearest greatest number
+floor() - nearest less number
+split(",", "a,b,c")  ==> ["a", "b", "c"]
+join()
+lower()
+upper()
+index()
+element()
+contains()  --> true/false
+
+variable "ami" {
+type = map
+default = { "us-east-1" = "ami-xyz", "ca-central-1"="am-efg", "ap-south-1" = "ami-ABC" }
+}
+keys(var.ami) -list only keys  , where var.ami is map variable  
+values(var.ami)  -> list only values  
+lookup(var.ami, "ca-central-1") -> get value of key "ca-central-1"
+lookup (var.ami, "ca-central-1", "ami-pqr") --> returns default value "ami-pqr"
+
+
+-----------------
+variable "cloud_users" {
+     type = string
+     default = "andrew:ken:faraz:mutsumi:peter:steve:braja"
+  
+}
+resource "aws_iam_user" "cloud" {
+    name = split(":", var.cloud_users)[count.index]
+    count = length(split(":", var.cloud_users))
+}
+------------------------
+variable "media" {
+  type = set(string)
+  default = [ 
+    "/media/tails.jpg",
+    "/media/eggman.jpg",
+    "/media/ultrasonic.jpg",
+      ]
+}
+-----------------------
+variable "sf" {
+  type = list
+  default = [
+    "ryu",
+    "ken",
+    "akuma",
+    "seth",
+    "zangief",
+  ]
+}
+---------------------------------------------
+variable "media" {
+  type = set(string)
+  default = [ 
+    "/media/tails.jpg",
+    "/media/eggman.jpg",
+    "/media/ultrasonic.jpg",
+    "/media/knuckles.jpg",
+    "/media/shadow.jpg",
+      ]
+}
+
+resource "aws_s3_bucket" "sonic_media" {
+     bucket = var.bucket
+  
+}
+
+resource "aws_s3_bucket_object" "upload_sonic_media" {
+     bucket = aws_s3_bucket.sonic_media.id 
+     key = substr(each.value, 7,20)
+     source = each.value
+     for_each = var.media
+  
+}
+-------------------------------------------------
+resource "aws_ec2_instance" "mario_servers" {
+    ami = var.ami 
+    instance_type = var.name == "tiny" ? var.small : var.large
+    tags = {
+        key = "Name"
+        value = var.name
+
+    }
+}
+-------------------------------------
+Terraform Worksapces:
+=======================
+$ terraform workspace new ProjectA
+$ terraform workspace list
+$ terraform workspace select ProjectA
+$ terraform workspace Create, change, delete
+
+variable ami {
+   type = map
+   deafault = {
+     "ProjectA" = "ami-1234"
+	 "ProjectB" = "ami-5678"
+	 }
+}
+
+resource "aws_instance" "ProjectA" {
+   ami = lookup(var.ami, terraform.workspace)
+   instacne_type = var.instacne_type
+   tags ={
+     Name = terraform.worksapce
+	 }
+}
+
+Terraform Logs:
+===============
+$ export TF_LOG=TRACE    ( verbose and default log level)
+$ export TF_LOG_PATH=/tmp/crash.log    (output versbose log to a file)
+
+Terraform Format:
+================
+$ terraform fmt        ( format the syntax with right manner)
+
+Terraform Validate:
+==================
+$ terraform validate     ( checks configuration is syntatically valid, also checks unsupported args, undeclared vars and others)
+
+Terraform Taint:
+===============
+taint command manually marks the terraform-managed resource as tainted, forcing  it to be destroyed and recreate it at next apply
+$ terraform taint aws_instance.myec2
+
+Terraform Graph:
+=================
+Used to generate a visual respresentation of either configuration or execution plan.
+Output of graph is DOT format, which can be easily convert to Image.  (need to install Graphviz software for image convert)
+$ terraform graph > graph.dot
+
+convert dot file to image
+$ cat graph.dot | dot -Tsvg > graph.svg
+
+Terraform plan -> File:
+===================
+$ terraform plan -out=demofile
+$ terraform apply demofile
+
+Terraform Output:
+================ 
+for ex:
+output "arns" {
+  value = aws_iam_user.lbusr[*].arn
+}
+output "inames" {
+  value = aws_iam_user.lbusr[*].name
+}
+
+$ terraform output arns       
+$ terraform output inames   
+inames = [
+  "tester.0",
+  "tester.1",
+  "tester.2",
+]        
+
+Terraform Refresh False:
+======================
+$ terraform plan -refresh=false
+$ terraform plan -refresh=false  -target=aws_ec2_instance.myec2   -> shows only ec2 instance refresh
+
+ZipMap Funtion:
+==============
+it constrcuts a map from list of keys and coresponding list of values.
+
+output "arns" {
+  value = aws_iam_user.lbusr[*].arn
+}
+output "inames" {
+  value = aws_iam_user.lbusr[*].name
+}
+
+output "combined" {
+  value = zipmap(aws_iam_user.lbusr[*].name, aws_iam_user.lbusr[*].arn)
+}
+
+combined = {
+  "tester.0" = "arn:aws:iam::036161297129:user/system/tester.0"
+  "tester.1" = "arn:aws:iam::036161297129:user/system/tester.1"
+  "tester.2" = "arn:aws:iam::036161297129:user/system/tester.2"
+}
+
+Terraform apply auto-approve:
+=============================
+$ terraform apply -auto-approve
+
+Terraform console to execute commands:
+====================================
+$ terraform console
+
+
+Terraform Comments:
+===================
+# --> single line comments
+// --> Same  like # , its single line comments
+/* and */  --> multiple line comment
+
+
+
+Null Resource:
+=============
+
+
+
+STS Role:
+========
+$ aws sts assume-role --role-arn arn:aws:iam:2222:role/sesha-sts --role-session-name kplabs-testing
+
+provider "aws" {
+  region = "us-east-1"
+  assume_role {
+    role_arn = "arn:aws:iam:aaa:role/sesha-sts"
+    session_name = "kplba_demo"
+  }
+}
+
+
+
+Dynamic Blocks:
+===============
+variable "sg_ports" {
+  type    = list(number)
+  default = [800, 8100, 8200, 8080, 9000]
+}
+
+resource "aws_security_group" "name" {
+  name        = "dynamic_sg"
+  description = "ingress for vault"
+
+  dynamic "ingress" {
+    for_each = var.sg_ports
+    content {
+      from_port   = ingress.value
+      to_port     = ingress.value
+      protocol    = "tcp"
+      cidr_blocks = ["0.0.0.0/0"]
+    }
+
+  }
+
+ex2:
+
+  dynamic "egress" {
+    for_each = var.sg_ports
+    iterator = ports      # Name the iterator instead default with egress
+    content {
+      from_port   = ports.value
+      to_port     = ports.value
+      protocol    = "tcp"
+      cidr_blocks = ["0.0.0.0/0"]
+    }
+
+  }
+
+
+Taint:
+=====
+To recreate the existing resource created by terraform.
+
+# terraform taint aws_instance.myec2
+
+# terraform untaint aws_instance.myec2
+
+
+For terraform v0.15.2 and later, recommend to use -replace  with terraform apply
+# terraform apply -repalce="aws_instance.myec2"
+
+
+Splat Expression:
+================
+resource "aws_iam_user" "test" {
+  name  = "testuser-${count.index}"
+  count = 3
+}
+
+output "iamuser" {
+  value = aws_iam_user.test[*].arn     # Splat expression with * aws_iam_user.test[*].arn 
+
+}
+
+Maps using locals:
+================
+locals {
+instances = {
+   instance1 = {
+     ami           = data.aws_ami.ubuntu.id
+     instance_type = "t3.micro"
+   }
+   instance2 = {
+     ami           = data.aws_ami.ubuntu.id
+     instance_type = "t3.micro"
+   }
+   instance3 = {
+     ami           = data.aws_ami.ubuntu.id
+     instance_type = "t3.medium"
+   }
+ }
+}
+
+resource "aws_instance" "my_vm" {
+ for_each      = local.instances
+ ami           = each.value.ami
+ instance_type = each.value.instance_type
+ tags = {
+   Name = format("VM_%s", each.key)
+ }
+}
+
+
+USEFUL LINKS:
+============
+https://www.theserverside.com/answer/Kubectl-apply-vs-create-Whats-the-difference
+
+
+Terraform Settings:
+==================
+terraform {
+  required_version = "~> 0.13"
+  
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 4.0"
+    }
+  }
+}
+
+Meta Arguments (lifecycle)  to Ignore manual changes from aws console: 
+========================================================
+resource "aws_instance" "myec2" {
+    ami = "ami-of1234"
+    instance_type = "t2.micro"
+    
+    tags = {
+       Name = "HelloEarth"
+    }
+    
+    lifecycle {
+        ignore_changes = [tags]
+    }
+ }
+ 
+ Arguments availabe for Lifecycle:
+ -------------------------------
+ create_before_destroy
+ prevent_destroy
+ ignore_changes
+ replace_triggered_by
+ 
+ 
+ Differnet Meta Arguments:
+ ===========================
+ depends_on
+ count
+ for_each
+ LifeCycle
+ provider
+ 
+ Provisioners:
+ ================
+ Used to execute scripts on a local or remote machine as part of resource creation or destruction
+ 
+ ex: 
+ Remote-exec: its run inside of ec2 instance
+ resource "aws_instance" "myec2" {
+  ami = "ami-082xyxz"
+  instacne_type = "t2.micro"
+  key_name = "terraform"
+  
+  provisioner "remote-exec" {
+    inline = [
+        "sudo amazon-linux-extras install -y nginx1.12"'
+        "sudo systemctl start nginx"
+        ]
+    connection {
+        type = "ssh"
+        host = self.public_ip
+        user = "ec2-user"
+        private_key = "${file("./terraform.pem)}"
+     }
+    }
+ }
+ 
+ local-exec: it runs on server where terraform is running
+ resource "aws_instance" "myec2" {
+  ami = "ami-082xyxz"
+  instacne_type = "t2.micro"
+  key_name = "terraform"
+  
+  provisioner "local-exec" {
+    command = "echo ${aws_instance.myec2.private_ip} >> private_ips.txt
+    }
+ }
+ 
+ =============================================================================================================
+on_failure:
+
+on_failure = continue
+on_failure = fail
+
+provisioner "remote-exec" {
+    on_failure = continue
+    
+}
+
+=====================================================================================
+Destroy Time Provisoner:
+ resource "aws_instance" "myec2" {
+ # ...
+  
+  provisioner "local-exec" {
+    when = destroy
+    command = "echo ${aws_instance.myec2.private_ip} >> private_ips.txt
+    }
+ }
+ 
+======================================================================================
+ DRY - (Dont Repeat Yourself):
+ ----
+ module/ec2/main.tf:
+ resource "aws_instance" "myweb" {
+    ami = "ami-xyxz123"
+    instance_type = "t2.micro"
+    key_name = "terraform"
+ }
+ 
+ Project/A/ec2_web.tf:
+ module "myec2" {
+        source = "../../module/ec2"
+ }
+ 
+ ==========================================================================================
+ variable and modules:
+ --------------------
+ module/ec2/variable.tf:
+ varaible "inst_type" {
+    default = "t2.micro"
+  }
+ 
+ module/ec2/main.tf:
+ resource "aws_instance" "myweb" {
+    ami = "ami-xyxz123"
+    instance_type = var.inst_type
+    key_name = "terraform"
+ }
+ 
+ Project/A/ec2_web.tf:
+ module "myec2" {
+        source = "../../module/ec2"
+        inst_type = "t2.large"
+ }
+ ===========================================================================================
+  local variable and modules:
+ ------------
+ module/ec2/main.tf:
+ resource "aws_instance" "myweb" {
+    ami = "ami-xyxz123"
+    instance_type = local.inst_type
+    key_name = "terraform"
+ }
+ 
+ locals {  
+    inst_type = "t2.micro"
+ }
+ 
+ Project/A/ec2_web.tf:
+ module "myec2" {
+        source = "../../module/ec2"
+        #inst_type = "t2.large"   # local variables can't be overwrite from here, as we did with variables.tf
+ }
+ ====================================================================================================
+ Module Outputs:
+ -------------
+ module/sg/sg.tf:
+ resource "aws_security_group" "ec2_sg" {
+   name = "myec2_sgrp"
+   
+   ingress {
+        description = "Aloow inbound"
+        from_port = 8443
+        to_port   = 8443
+        protocol  = "tcp"
+        cidr_blocks = ["0.0.0.0/0"]
+    }
+    
+    egress {
+        description = "Aloow inbound"
+        from_port = 8443
+        to_port   = 8443
+        protocol  = "-1"
+        cidr_blocks = ["0.0.0.0/0"]
+    }
+    
+ output "sg_id" {
+    value = aws_security_group.ec2_sg.id
+    }
+    
+projects/A/my-sg.tf:
+module "sgmodule" {
+    source = "../../modules/sg"
+  }
+resource "aws_instance" "web" {
+    ami = "ami-xyz123"
+    instacne_type = "t2.micro"
+    vpc_security_group_ids = [module.sgmodule.sg_id]
+}
+=========================================================
+Requirements for Publishing Module into Terraform Registry:
+Github
+Named
+Respo descriptionStandard module structure
+x,y,z tags for Releases
+
+
+
+Module Sources from GIT:
+=======================
+Deafult refers to master branch:
+module "vpc" {
+    source = "git::https://example.com/vpc.git"
+
+}
+
+To Refer specific branch:
+module "vpc" {
+    source = "git::https://example.com/vpc.git?ref=devel"
+
+}
+===========================================================================================
+Create aws resources in two different Regions:
+=============================================
+providers.tf:
+-------------
+provider "aws" {
+    region = "us-east-1"
+}
+
+provider "aws" {
+    alias  = "mumbai"
+    region = "ap-south-1"
+}
+
+
+eip.tf:
+------
+resource "aws_eip" "myeip-1" {
+    vpc = "true"
+}
+
+resource "aws_eip" "myeip-2" {
+    vpc = "true"
+    provider = "aws.mumbai"
+}
+=============================================
+Create aws resources in two different Profiles:
+=============================================
+providers.tf:
+-------------
+provider "aws" {
+    region = "us-east-1"
+}
+
+provider "aws" {
+    alias  = "aws2"
+    region = "ap-south-1"
+    profile = "account2"
+}
+
+
+eip.tf:
+------
+resource "aws_eip" "myeip-1" {
+    vpc = "true"
+}
+
+resource "aws_eip" "myeip-2" {
+    vpc = "true"
+    provider = "aws.aws2"
+}
+=======================================================================================================================
+To hide Sensitive password:
+prevent the field values from showing up in CLI output:
+
+locals {
+    db_password = {
+        admin = "password"
+    }
+  }
+  
+output "db_password" {
+    value = local.db_password
+    sensitive = true
+ }
