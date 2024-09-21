@@ -1,7 +1,7 @@
 provider "aws" {
   region = "us-east-1"
-  access_key = "AKIARM2YLMTDFUUC55BX"
-  secret_key = "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"
+  access_key = "abcd"
+  secret_key = "abcd"
 }
 
 provisioner "file" {
