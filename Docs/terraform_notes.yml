@@ -1,6 +1,8 @@
 Terraform:
 =========
 
+https://github.com/rahulwagh/Terraform-Topics/tree/master
+
 Providers:
 --------
 Different Version Parameters:
@@ -245,7 +247,7 @@ lifecycle {
 }
 
 ---------------------------------------------------------------
-To see the id of the file resource created?
+To see the id of the file resource created?:
 
 Run 
 $ terraform show (or) 
@@ -324,6 +326,7 @@ resource "local_file" "pet" {
   }
   
   (or ) - use set type variable
+  
 variable "filename" {
   type = set(string)
   default = [
@@ -385,7 +388,7 @@ resource "aws-instance" "myec2" {
   }
 }
 -------------------------------------------------------------
-Remote Backends with S3
+Remote Backends with S3:
 ======================
 terraform.tf
 -------------
@@ -841,6 +844,41 @@ resource "aws_instance" "myec2" {
  
  Provisioners:
  ================
+ File:
+ ----
+ used for transferring and copying the files from one machine to another machine, it can also be used for transferring/uploading the directories
+ 
+ provisioner "file" {
+    source      = "/home/rahul/Jhooq/keys/aws/test-file.txt"
+    destination = "/home/ubuntu/test-file.txt"
+  }
+ 
+ Content:
+ provisioner "file" {
+    content     = "I want to copy this string to the destination file server.txt"
+    destination = "/home/ubuntu/server.txt"
+}
+
+ 
+ resource "aws_instance" "ec2_example" {
+    ami = "ami-0767046d1677be5a0"  
+    instance_type = "t2.micro" 
+    key_name= "aws_key"
+    vpc_security_group_ids = [aws_security_group.main.id]
+
+  provisioner "file" {
+    source      = "/home/rahul/Jhooq/keys/aws/test-file.txt"
+    destination = "/home/ubuntu/test-file.txt"
+  }
+  connection {
+      type        = "ssh"
+      host        = self.public_ip
+      user        = "ubuntu"
+      private_key = file("/home/rahul/Jhooq/keys/aws/aws_key")
+      timeout     = "4m"
+   }
+}
+ -------------------------------------------------------------------------
  Used to execute scripts on a local or remote machine as part of resource creation or destruction
  
  ex: 
@@ -855,13 +893,14 @@ resource "aws_instance" "myec2" {
         "sudo amazon-linux-extras install -y nginx1.12"'
         "sudo systemctl start nginx"
         ]
-    connection {
+   }
+   connection {
         type = "ssh"
         host = self.public_ip
         user = "ec2-user"
         private_key = "${file("./terraform.pem)}"
+        timeout = "4m"
      }
-    }
  }
  
  local-exec: it runs on server where terraform is running
@@ -934,7 +973,7 @@ Destroy Time Provisoner:
  }
  ===========================================================================================
   local variable and modules:
- ------------
+ -----------------------
  module/ec2/main.tf:
  resource "aws_instance" "myweb" {
     ami = "ami-xyxz123"
@@ -959,7 +998,7 @@ Destroy Time Provisoner:
    name = "myec2_sgrp"
    
    ingress {
-        description = "Aloow inbound"
+        description = "Allow inbound"
         from_port = 8443
         to_port   = 8443
         protocol  = "tcp"
@@ -967,7 +1006,7 @@ Destroy Time Provisoner:
     }
     
     egress {
-        description = "Aloow inbound"
+        description = "Allow outbound"
         from_port = 8443
         to_port   = 8443
         protocol  = "-1"
