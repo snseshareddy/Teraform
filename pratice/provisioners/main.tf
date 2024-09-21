@@ -1,7 +1,7 @@
 provider "aws" {
   region = "us-east-1"
-  aaccess_key = "abcd"
-  bsecret_key = "abcd"
+  aaccess_keya = "abcd"
+  bsecret_keya = "abcd"
 }
 
 provisioner "file" {
@@ -18,12 +18,6 @@ provisioner "file" {
 ##==============================================================================================================
 ##  provisioner "local-exec" 
 
-provider "aws" {
-   region     = "eu-central-1"
-   aaccess_key = "AKIATQ37NXBxxxxxxxxx"
-   bsecret_key = "JzZKiCia2vjbq4zGGGewdbOhnacmxxxxxxxxxxxx"
-   
-}
 
 resource "aws_instance" "ec2_example" {
 
